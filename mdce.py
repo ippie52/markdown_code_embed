@@ -7,6 +7,7 @@ from re import search
 from shutil import copyfile
 from filecmp import cmp
 from subprocess import Popen, PIPE
+from sys import exit
 
 
 # real_path = realpath(__file__)
@@ -125,26 +126,34 @@ def getFiles(root, check_subs, depth):
 
 # TODO - Find out if file tracked in git
 # git ls-files --error-unmatch <file name> | RETURN CODE
-# TODO - Check if file is updated on working branch
-# git update-index --refresh  | RETURN CODE ?
-# git diff-index --quiet HEAD -- | RETURN CODE
 
 
 def isFileTracked(filename):
     """Identifies whether a file is tracked in git"""
     args = ['git', 'ls-files', '--error-unmatch', filename]
-    p = Popen(args, stderr=PIPE)
-    o, e = p.communicate(timeout=2)
+    p = Popen(args, stdout=PIPE)
+    p.communicate(timeout=2)
     tracked = False
     if p.returncode == 0:
         tracked = True
     elif p.returncode != 1:
-        print('Error accessing Git repository in', dirname(fc))
+        print('Error accessing Git repository in', dirname(filename))
+
+    return tracked
 
 
-    print(filename, "tracked?", p.returncode)
-    # print(dir(p))
-    # print()
+# TODO - Check if file is updated on working branch
+# git update-index --refresh  | RETURN CODE ?
+# git diff-index --quiet HEAD -- | RETURN CODE
+
+def isFileChangedInGit(filename):
+    """
+    Identifies whether a file has been updated on the current working directory
+    """
+    args = ['git', 'diff-index', '--quiet', 'HEAD', '--', filename]
+    p = Popen(args, stderr=PIPE)
+    o, e = p.communicate(timeout=2)
+    print('FIles Changed in git?', p.returncode, filename)
 
 
 # Gather files
@@ -156,7 +165,8 @@ for d in [realpath(join(getcwd(), d)) for d in args.directories]:
         args.files += getFiles(d, args.sub, 1)
 
 files_changed = []
-
+tracked_changes = []
+# Parse all files, and check any tracked files for changes, even if we don't update them
 for file in args.files:
     if isfile(file):
         print("Parsing:", file)
@@ -165,9 +175,21 @@ for file in args.files:
 
 
 original_directory = getcwd();
-for fc in files_changed:
-    chdir(dirname(fc))
-    tracked = isFileTracked(fc)
-    print("File", fc, "changed.")
+for file in files_changed:
+    print("File", file, "changed.")
+    chdir(dirname(file))
+    if isFileTracked(file) and isFileChangedInGit(file):
+        tracked_changes.append(file)
+
+if not args.ignore_git and len(tracked_changes) > 0:
+    for file in tracked_changes:
+        print("Tracked File:", file, "changed.")
 
 chdir(original_directory)
+
+if not args.ignore_untracked:
+    exit(len(files_changed))
+elif not args.ignore_git:
+    exit(len(tracked_changes))
+
+exit(0)
