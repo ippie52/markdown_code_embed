@@ -4,6 +4,7 @@ from os import chdir, getcwd, walk, listdir
 from os.path import dirname, realpath, exists, isdir, isfile, join
 from argparse import ArgumentParser
 from re import search
+from shutil import copyfile
 
 
 real_path = realpath(__file__)
@@ -18,21 +19,76 @@ parser.add_argument('-d', '--directories', metavar="directory",
 parser.add_argument('-f', '--files', metavar="file name",
     help='Files to be scanned',
     default=[], nargs='+')
-parser.add_argument('-s', '--sub', action="store_true", default=False)
+parser.add_argument('-s', '--sub', action="store_true", 
+    help='Checks all sub-directories',
+    default=False)
+parser.add_argument('-b', '--backup', action="store_true", 
+    help='Backs up the original file, appending ".old" to the file name',  
+    default=False)
 
 args = parser.parse_args()
 print('ARGS:', args)
 
-def parseFile(filename):
+def getSourceLines(filename, start, end):
+    """Gets the list of lines to be extracted from the given file"""
+    selected = None
+    with open(filename) as file:
+        lines = file.readlines()
+        # Bounds check
+        if start is None:
+            start = 1
+            end = len(lines)
+        elif end is None:
+            end = start
+        # Add one, zero indexed list vs lines starting at 1
+        start = int(start) - 1
+        # No need to remove from end
+        end = int(end)
+        if start <= len(lines) and end <= len(lines):
+            print("GRABBING:", start, "to", end)
+            selected = lines[start:end]
+        else:
+            raise IndexError("Line indiced out of bounds")
+    return selected
+
+
+def parseReadme(filename, backup):
     """
     Parses the given file for code snippets with file names listed
     """
+    if backup:
+        copyfile(filename, filename + ".old")
+    out_lines = []
     with open(filename) as file:
-        for num, line in enumerate([line.rstrip() for line in file]):
-            re_out = search(r"^```\s*(\w+)\:([\w_\-\.\/]+)\s*\[(\d+)\-?(\d+)?\]?.*$", line)
-            # print(re_out)
-            if re_out is not None and len(re_out.groups()) >= 4:
-                print(num, re_out.groups())
+        replacing = False
+        
+        for num, line in enumerate(file):
+            if not replacing:
+                start = search(r"^```\s*(\w+)\:([\w_\-\.\/]+)\s*\[?(\d+)?\-?(\d+)?\]?.*$", line)
+                # Append the line
+                out_lines.append(line)
+                # Check for the start of an embedded comment block
+                replacing = start is not None and len(start.groups()) >= 4
+                # If replacing, go add the line(s)
+                if replacing:
+                    print('@@@@', num, start.groups())
+                    # print(num, start.groups())
+                    # print(getSourceLines(start.group(2), start.group(3), start.group(4)))
+                    out_lines += getSourceLines(start.group(2), start.group(3), start.group(4))
+
+            else:
+                end = search(r"^```\s*$", line)
+                replacing = end is None
+                print(end, "->", replacing, line)
+                if not replacing:
+                    out_lines.append(line)
+    for l in out_lines:
+        print(l)
+    with open(filename, 'w') as file:
+        file.write(''.join(out_lines))
+                
+
+                
                 
 
 def getFiles(root, check_subs, depth):
@@ -57,5 +113,5 @@ for directory in args.directories:
 for file in args.files:
     if isfile(file):
         print("Scanning:", file)
-        parseFile(file)
+        parseReadme(file, args.backup)
 
