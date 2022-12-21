@@ -34,9 +34,13 @@ parser.add_argument('-g', '--ignore-git', action="store_true",
 parser.add_argument('-u', '--ignore-untracked', action="store_true",
     help='Return value ignores changes to untracked files',
     default=False)
+parser.add_argument('-q', '--quiet', action='store_true',
+    help='Reduces the number of messages printed',
+    default=False)
 
 args = parser.parse_args()
 print('ARGS:', args)
+verbose = not args.quiet
 
 
 
@@ -108,19 +112,20 @@ def parseMarkDown(filename, backup, compare):
     return result
 
 
-def getFiles(root, check_subs, depth):
+def getFiles(root, check_subs, depth, verbose):
     """Gets the matching files recursively"""
     root = realpath(root)
     files = []
     file = join(root, "README.md")
     if exists(file):
-        print('Found file:', file)
+        if verbose:
+            print('Found file:', file)
         files.append(file)
     if check_subs:
         for d in listdir(root):
             d = realpath(join(root, d))
             if isdir(d):
-                files += getFiles(d, check_subs, depth + 1)
+                files += getFiles(d, check_subs, depth + 1, verbose)
 
     return files
 
@@ -131,7 +136,7 @@ def getFiles(root, check_subs, depth):
 def isFileTracked(filename):
     """Identifies whether a file is tracked in git"""
     args = ['git', 'ls-files', '--error-unmatch', filename]
-    p = Popen(args, stdout=PIPE)
+    p = Popen(args, stdout=PIPE, stderr=PIPE)
     p.communicate(timeout=2)
     tracked = False
     if p.returncode == 0:
@@ -153,7 +158,7 @@ def isFileChangedInGit(filename):
     args = ['git', 'diff-index', '--quiet', 'HEAD', '--', filename]
     p = Popen(args, stderr=PIPE)
     o, e = p.communicate(timeout=2)
-    print('FIles Changed in git?', p.returncode, filename)
+    return p.returncode == 1
 
 
 # Gather files
@@ -162,28 +167,36 @@ for d in [realpath(join(getcwd(), d)) for d in args.directories]:
 
     if exists(d) and isdir(d):
         print('Directory Valid:', d)
-        args.files += getFiles(d, args.sub, 1)
+        args.files += getFiles(d, args.sub, 1, verbose)
 
 files_changed = []
-tracked_changes = []
-# Parse all files, and check any tracked files for changes, even if we don't update them
-for file in args.files:
+for i, file in enumerate(args.files):
+    last_msg_length = 0
     if isfile(file):
-        print("Parsing:", file)
+        progress = 100. * float(i + 1) / float(len(args.files))
+        if verbose:
+            msg = f"\rParsing: [{round(progress)}%] " + file
+            print(' '.rjust(last_msg_length), end="")
+            print(msg, end="")
+            last_msg_length = len(msg)
         if not parseMarkDown(file, args.backup, not args.ignore_untracked):
             files_changed.append(file)
-
+print("")
 
 original_directory = getcwd();
-for file in files_changed:
-    print("File", file, "changed.")
-    chdir(dirname(file))
-    if isFileTracked(file) and isFileChangedInGit(file):
-        tracked_changes.append(file)
+tracked_changes = []
+if len(files_changed) > 0:
+    print('Files updated on this run:')
+    for file in files_changed:
+        print('\t', file)
+        chdir(dirname(file))
+        if isFileTracked(file) and isFileChangedInGit(file):
+            tracked_changes.append(file)
 
 if not args.ignore_git and len(tracked_changes) > 0:
+    print('Files tracked by Git modified on this run:')
     for file in tracked_changes:
-        print("Tracked File:", file, "changed.")
+        print('\t', file)
 
 chdir(original_directory)
 
