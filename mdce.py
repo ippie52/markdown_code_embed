@@ -59,6 +59,7 @@ def parseReadme(filename, backup):
     if backup:
         copyfile(filename, filename + ".old")
     out_lines = []
+    directory = dirname(filename)
     with open(filename) as file:
         replacing = False
         
@@ -74,7 +75,7 @@ def parseReadme(filename, backup):
                     print('@@@@', num, start.groups())
                     # print(num, start.groups())
                     # print(getSourceLines(start.group(2), start.group(3), start.group(4)))
-                    out_lines += getSourceLines(start.group(2), start.group(3), start.group(4))
+                    out_lines += getSourceLines(join(directory, start.group(2)), start.group(3), start.group(4))
 
             else:
                 end = search(r"^```\s*$", line)
@@ -100,15 +101,20 @@ def getFiles(root, check_subs, depth):
         print('Found file:', file)
         files.append(file)
     if check_subs:
-        for d in [join(root, d) for d in listdir(root) if isdir(d)]:
-            files += getFiles(d, check_subs, depth + 1)
+        for d in listdir(root):
+            d = realpath(join(root, d))
+            print('Checking for subs...', d)
+            if isdir(d):
+                files += getFiles(d, check_subs, depth + 1)
 
     return files
 
 # Gather files
-for directory in args.directories:
-    if exists(directory) and isdir(directory):
-        args.files += getFiles(directory, args.sub, 1)
+for d in [realpath(join(getcwd(), d)) for d in args.directories]:
+    print('Checking', d)
+    if exists(d) and isdir(d):
+        print('Directory Valid:', d)
+        args.files += getFiles(d, args.sub, 1)
 
 for file in args.files:
     if isfile(file):
