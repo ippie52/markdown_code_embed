@@ -30,7 +30,6 @@ class Log:
         TYPE_DEBUG: DEFAULT_PREFIX_DEBUG,
     }
 
-
     NORM = '\033[0m'
     COL_BLK = '\033[1;30m'
     COL_RED = '\033[1;31m'
@@ -47,6 +46,23 @@ class Log:
         TYPE_DEBUG: COL_BLU
     }
 
+    VERB_OFF = 0
+    VERB_ERROR = 1
+    VERB_WARNING = 2
+    VERB_INFO = 3
+    VERB_DEBUG = 4
+    VERB = {
+        TYPE_ERROR: VERB_ERROR,
+        TYPE_WARNING: VERB_WARNING,
+        TYPE_INFO: VERB_INFO,
+        TYPE_DEBUG: VERB_DEBUG,
+    }
+    CURRENT_VERBOSITY = VERB_DEBUG
+
+    @staticmethod
+    def set_verb(verb):
+        """Sets the current verbosity level"""
+        Log.CURRENT_VERBOSITY = verb
 
 
     @staticmethod
@@ -74,9 +90,11 @@ class Log:
         """
         Prints a message to the screen in a standard format for the given type
         """
-        col = Log.COL[log_type]
-        prefix = Log.TYPE_PREFIX[log_type]
-        print(f"{col}{prefix}: {message}{Log.NORM}", end=end)
+        verb = Log.VERB[log_type]
+        if verb <= Log.CURRENT_VERBOSITY:
+            col = Log.COL[log_type]
+            prefix = Log.TYPE_PREFIX[log_type]
+            print(f"{col}{prefix}: {message}{Log.NORM}", end=end)
 
     @staticmethod
     def set_error(colour=None, prefix=None):
@@ -95,7 +113,7 @@ class Log:
         Log.set_log(Log.TYPE_DEBUG, colour, prefix)
 
     @staticmethod
-    def set_log(log_type, colour=None, prefix=None):
+    def set_log(log_type, colour=None, prefix=None, verb=VERB_ERROR):
         """
         Sets the attributes of a log type, or adds a new one
         """
@@ -109,7 +127,7 @@ class Log:
         elif log_type not in Log.TYPE_PREFIX:
             Log.TYPE_PREFIX[log_type] = log_type
 
-        # TODO - Check that both exist if a user-defined value is provided
+        Log.VERB[log_type] = verb
 
 if __name__ == '__main__':
 
