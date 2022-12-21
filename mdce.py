@@ -1,4 +1,9 @@
 #!/usr/bin/python3
+"""
+@brief  Script used to embed code from files into markdown files
+
+@author Kris Dunning (ippie52@gmail.com)
+"""
 
 from os import chdir, getcwd, walk, listdir, remove, chdir
 from os.path import dirname, realpath, exists, isdir, isfile, join
@@ -8,11 +13,8 @@ from shutil import copyfile
 from filecmp import cmp
 from subprocess import Popen, PIPE
 from sys import exit
+from logging import Log
 
-
-# real_path = realpath(__file__)
-# print('You file is at', realpath(__file__), "which is in path", dirname(real_path))
-# print('Your terminal resides at', getcwd())
 
 parser = ArgumentParser(prog="EmbedCode",
     description="Embed code within markdown documents")
@@ -39,9 +41,8 @@ parser.add_argument('-q', '--quiet', action='store_true',
     default=False)
 
 args = parser.parse_args()
-print('ARGS:', args)
-verbose = not args.quiet
 
+Log.set_verb(Log.VERB_WARNING if args.quiet else Log.VERB_INFO)
 
 
 def getSourceLines(filename, start, end):
@@ -60,7 +61,7 @@ def getSourceLines(filename, start, end):
         # No need to remove from end
         end = int(end)
         if start <= len(lines) and end <= len(lines):
-            # print("GRABBING:", start, "to", end)
+            Log.d(f"GRABBING: {start} to {end}")
             selected = lines[start:end]
         else:
             raise IndexError(f"Line indices out of bounds: {start} {end} out of {len(lines)}" )
@@ -89,19 +90,17 @@ def parseMarkDown(filename, backup, compare):
                     replacing = start is not None and len(start.groups()) >= 4
                     # If replacing, go add the line(s)
                     if replacing:
-                        # print('@@@@', num, start.groups())
-                        # print(num, start.groups())
-                        # print(getSourceLines(start.group(2), start.group(3), start.group(4)))
+                        Log.d(f'{num} -> {start.groups()}')
                         out_lines += getSourceLines(join(directory, start.group(2)), start.group(3), start.group(4))
 
                 else:
                     end = search(r"^```\s*$", line)
                     replacing = end is None
-                    # print(end, "->", replacing, line)
+                    Log.d(f'{end} -> replacing {line}')
                     if not replacing:
                         out_lines.append(line)
         except IndexError as e:
-            print('Failed to parse file:', filename, e)
+            Log.w(f'Failed to parse file: {filename}\n{e}')
             return False
 
     with open(filename, 'w') as file:
@@ -112,20 +111,19 @@ def parseMarkDown(filename, backup, compare):
     return result
 
 
-def getFiles(root, check_subs, depth, verbose):
+def getFiles(root, check_subs, depth):
     """Gets the matching files recursively"""
     root = realpath(root)
     files = []
     file = join(root, "README.md")
     if exists(file):
-        if verbose:
-            print('Found file:', file)
+        Log.i(f'Found file: {file}')
         files.append(file)
     if check_subs:
         for d in listdir(root):
             d = realpath(join(root, d))
             if isdir(d):
-                files += getFiles(d, check_subs, depth + 1, verbose)
+                files += getFiles(d, check_subs, depth + 1)
 
     return files
 
@@ -142,7 +140,7 @@ def isFileTracked(filename):
     if p.returncode == 0:
         tracked = True
     elif p.returncode != 1:
-        print('Error accessing Git repository in', dirname(filename))
+        Log.w(f'Error accessing Git repository in {dirname(filename)}')
 
     return tracked
 
@@ -163,40 +161,42 @@ def isFileChangedInGit(filename):
 
 # Gather files
 for d in [realpath(join(getcwd(), d)) for d in args.directories]:
-    print('Checking', d, "and sub-directories" if args.sub else "")
+    Log.i(f'Checking {d} and sub-directories' if args.sub else "")
 
     if exists(d) and isdir(d):
-        print('Directory Valid:', d)
-        args.files += getFiles(d, args.sub, 1, verbose)
+        Log.d(f'Directory Valid: {d}')
+        args.files += getFiles(d, args.sub, 1)
 
 files_changed = []
 for i, file in enumerate(args.files):
     last_msg_length = 0
     if isfile(file):
         progress = 100. * float(i + 1) / float(len(args.files))
-        if verbose:
-            msg = f"\rParsing: [{round(progress)}%] " + file
-            print(' '.rjust(last_msg_length), end="")
-            print(msg, end="")
-            last_msg_length = len(msg)
+        msg = f"\rParsing: [{round(progress)}%] " + file
+        Log.i(' '.rjust(last_msg_length), end="")
+        Log.i(msg, end="")
+        last_msg_length = len(msg)
         if not parseMarkDown(file, args.backup, not args.ignore_untracked):
             files_changed.append(file)
-print("")
+Log.i("")
+
+Log.set_log('untracked', colour=Log.COL_CYN, prefix='')
+Log.set_log('tracked', colour=Log.COL_YLW, prefix='Git')
 
 original_directory = getcwd();
 tracked_changes = []
 if len(files_changed) > 0:
-    print('Files updated on this run:')
+    Log.message('untracked', 'Files updated on this run:')
     for file in files_changed:
-        print('\t', file)
+        Log.message('untracked', '\t' + file)
         chdir(dirname(file))
         if isFileTracked(file) and isFileChangedInGit(file):
             tracked_changes.append(file)
 
 if not args.ignore_git and len(tracked_changes) > 0:
-    print('Files tracked by Git modified on this run:')
+    Log.message('tracked', 'Files tracked by Git modified on this run:')
     for file in tracked_changes:
-        print('\t', file)
+        Log.message('tracked', '\t' + file)
 
 chdir(original_directory)
 
