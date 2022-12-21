@@ -176,7 +176,7 @@ for i, file in enumerate(args.files):
         Log.i(' '.rjust(last_msg_length), end="")
         Log.i(msg, end="")
         last_msg_length = len(msg)
-        if not parseMarkDown(file, args.backup, not args.ignore_untracked):
+        if parseMarkDown(file, args.backup, not args.ignore_untracked):
             files_changed.append(file)
 Log.i("")
 
