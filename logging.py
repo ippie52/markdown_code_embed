@@ -14,10 +14,10 @@ class Log:
     """
     Logging class used to display log messages
     """
-    DEFAULT_PREFIX_ERROR = 'E'
-    DEFAULT_PREFIX_WARNING = 'W'
-    DEFAULT_PREFIX_INFO = 'I'
-    DEFAULT_PREFIX_DEBUG = 'D'
+    DEFAULT_PREFIX_ERROR = 'E: '
+    DEFAULT_PREFIX_WARNING = 'W: '
+    DEFAULT_PREFIX_INFO = 'I: '
+    DEFAULT_PREFIX_DEBUG = 'D: '
 
     TYPE_ERROR = 'error'
     TYPE_WARNING = 'warning'
@@ -94,7 +94,7 @@ class Log:
         if verb <= Log.CURRENT_VERBOSITY:
             col = Log.COL[log_type]
             prefix = Log.TYPE_PREFIX[log_type]
-            print(f"{col}{prefix}: {message}{Log.NORM}", end=end)
+            print(f"{col}{prefix}{message}{Log.NORM}", end=end)
 
     @staticmethod
     def set_error(colour=None, prefix=None):
@@ -113,7 +113,7 @@ class Log:
         Log.set_log(Log.TYPE_DEBUG, colour, prefix)
 
     @staticmethod
-    def set_log(log_type, colour=None, prefix=None, verb=VERB_ERROR):
+    def set_log(log_type, colour=None, prefix=None, verb=None):
         """
         Sets the attributes of a log type, or adds a new one
         """
@@ -127,7 +127,10 @@ class Log:
         elif log_type not in Log.TYPE_PREFIX:
             Log.TYPE_PREFIX[log_type] = log_type
 
-        Log.VERB[log_type] = verb
+        if verb is not None:
+            Log.VERB[log_type] = verb
+        elif log_type not in Log.VERB:
+            Log.VERB[log_type] = Log.VERB_ERROR
 
 if __name__ == '__main__':
 
