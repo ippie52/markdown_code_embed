@@ -58,7 +58,7 @@ def getSourceLines(filename, start, end):
             # print("GRABBING:", start, "to", end)
             selected = lines[start:end]
         else:
-            raise IndexError("Line indiced out of bounds")
+            raise IndexError(f"Line indices out of bounds: {start} {end} out of {len(lines)}" )
     return selected
 
 
@@ -73,27 +73,31 @@ def parseMarkDown(filename, backup, compare):
     directory = dirname(filename)
     with open(filename) as file:
         replacing = False
+        try:
         
-        for num, line in enumerate(file):
-            if not replacing:
-                start = search(r"^```\s*(\w+)\:([\w_\-\.\/]+)\s*\[?(\d+)?\-?\:?(\d+)?\]?.*$", line)
-                # Append the line
-                out_lines.append(line)
-                # Check for the start of an embedded comment block
-                replacing = start is not None and len(start.groups()) >= 4
-                # If replacing, go add the line(s)
-                if replacing:
-                    print('@@@@', num, start.groups())
-                    print(num, start.groups())
-                    # print(getSourceLines(start.group(2), start.group(3), start.group(4)))
-                    out_lines += getSourceLines(join(directory, start.group(2)), start.group(3), start.group(4))
-
-            else:
-                end = search(r"^```\s*$", line)
-                replacing = end is None
-                # print(end, "->", replacing, line)
+            for num, line in enumerate(file):
                 if not replacing:
+                    start = search(r"^```\s*(\w+)\:([\w_\-\.\/]+)\s*\[?(\d+)?\-?\:?(\d+)?\]?.*$", line)
+                    # Append the line
                     out_lines.append(line)
+                    # Check for the start of an embedded comment block
+                    replacing = start is not None and len(start.groups()) >= 4
+                    # If replacing, go add the line(s)
+                    if replacing:
+                        # print('@@@@', num, start.groups())
+                        # print(num, start.groups())
+                        # print(getSourceLines(start.group(2), start.group(3), start.group(4)))
+                        out_lines += getSourceLines(join(directory, start.group(2)), start.group(3), start.group(4))
+
+                else:
+                    end = search(r"^```\s*$", line)
+                    replacing = end is None
+                    # print(end, "->", replacing, line)
+                    if not replacing:
+                        out_lines.append(line)
+        except IndexError as e:
+            print('Failed to parse file:', filename, e)
+            return False
 
     with open(filename, 'w') as file:
         file.write(''.join(out_lines))
