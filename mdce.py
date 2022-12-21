@@ -42,7 +42,12 @@ parser.add_argument('-q', '--quiet', action='store_true',
 
 args = parser.parse_args()
 
+TRACKED_TYPE = 'tracked'
+UNTRACKED_TYPE = 'untracked'
 Log.set_verb(Log.VERB_WARNING if args.quiet else Log.VERB_INFO)
+Log.set_log(UNTRACKED_TYPE, colour=Log.COL_CYN, prefix='')
+Log.set_log(TRACKED_TYPE, colour=Log.COL_YLW, prefix='')
+Log.set_info(prefix='')
 
 
 def getSourceLines(filename, start, end):
@@ -141,7 +146,6 @@ def isFileTracked(filename):
         tracked = True
     elif p.returncode != 1:
         Log.w(f'Error accessing Git repository in {dirname(filename)}')
-
     return tracked
 
 
@@ -158,10 +162,13 @@ def isFileChangedInGit(filename):
     o, e = p.communicate(timeout=2)
     return p.returncode == 1
 
-
 # Gather files
 for d in [realpath(join(getcwd(), d)) for d in args.directories]:
-    Log.i(f'Checking {d} and sub-directories' if args.sub else "")
+    Log.i(f'Checking {d}', end="")
+    if args.sub:
+        Log.i(' and sub-directories')
+    else:
+        Log.i('')
 
     if exists(d) and isdir(d):
         Log.d(f'Directory Valid: {d}')
@@ -178,25 +185,26 @@ for i, file in enumerate(args.files):
         last_msg_length = len(msg)
         if parseMarkDown(file, args.backup, not args.ignore_untracked):
             files_changed.append(file)
-Log.i("")
 
-Log.set_log('untracked', colour=Log.COL_CYN, prefix='')
-Log.set_log('tracked', colour=Log.COL_YLW, prefix='Git')
+
+
 
 original_directory = getcwd();
 tracked_changes = []
+Log.d(f'There are {len(files_changed)} files changed')
 if len(files_changed) > 0:
-    Log.message('untracked', 'Files updated on this run:')
+    # We need to recover a new line after the parsing progress, so \n at start
+    Log.i('\nFiles updated on this run:')
     for file in files_changed:
-        Log.message('untracked', '\t' + file)
+        Log.i('\t' + file)
         chdir(dirname(file))
         if isFileTracked(file) and isFileChangedInGit(file):
             tracked_changes.append(file)
 
 if not args.ignore_git and len(tracked_changes) > 0:
-    Log.message('tracked', 'Files tracked by Git modified on this run:')
+    Log.message(TRACKED_TYPE, 'Files tracked by Git modified on this run:')
     for file in tracked_changes:
-        Log.message('tracked', '\t' + file)
+        Log.message(TRACKED_TYPE, '\t' + file)
 
 chdir(original_directory)
 
