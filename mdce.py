@@ -95,31 +95,45 @@ class BlockInfo:
 
 def getBlockInfo(line, last_block):
     """Uses the current line to create a BlockInfo object"""
-    block = search(r"^(```+)\s*(\w+)?\:?([\w_\-\.\/]+)?\s*\[?(\d+)?\-?\:?(\d+)?\]?.*$", line)
-    if block is None:
-        return BlockInfo()
-    elif last_block is None: # Start of block
-        print(block)
-        if len(block.groups()) >= 5:
-            return BlockInfo(is_start=True, length=len(block.group(1)),
-                filename=block.group(3), start_line=block.group(4),
-                end_line=block.group(5))
-        else:
-            return BlockInfo()
-    else:
-        if len(block.group(1)) >= last_block._length:
-            return BlockInfo(is_end=True)
-        else:
-            return BlockInfo()
-    raise RuntimeError("No return route for " + block + " and " + last_block)
+    expr = r"^(```+)\s*(\w+)?\:?([\w_\-\.\/]+)?\s*\[?(\d+)?\-?\:?(\d+)?\]?.*$"
+    block = search(expr, line)
+
+    info = BlockInfo()
+    if block is not None:
+        if last_block is None and len(block.groups()) >= 5:
+            info = BlockInfo(is_start=True, length=len(block.group(1)),
+                    filename=block.group(3), start_line=block.group(4),
+                    end_line=block.group(5))
+        elif last_block is not None and len(block.group(1)) >= last_block._length:
+            info = BlockInfo(is_end=True)
+
+    # if block is None:
+    #     return BlockInfo()
+    # elif last_block is None: # Start of block
+    #     if len(block.groups()) >= 5:
+    #         return BlockInfo(is_start=True, length=len(block.group(1)),
+    #             filename=block.group(3), start_line=block.group(4),
+    #             end_line=block.group(5))
+    #     else:
+    #         return BlockInfo()
+    # else:
+    #     if len(block.group(1)) >= last_block._length:
+    #         return BlockInfo(is_end=True)
+    #     else:
+    #         return BlockInfo()
+    # raise RuntimeError("No return route for " + block + " and " + last_block)
+    return info
 
 
-def parseMarkDown(filename, backup, compare):
-    """Parses the file for code snippets to embed from files"""
+def parseMarkDown(filename, backup):
+    """
+    Parses the file for code snippets to embed from files
+    @return True if the file has been modified on this run
+    """
 
     old_file_name = filename + ".old"
-    if backup or compare:
-        copyfile(filename, old_file_name)
+    # Always create a copy
+    copyfile(filename, old_file_name)
 
     out_lines = []
     last_block = None
@@ -144,45 +158,17 @@ def parseMarkDown(filename, backup, compare):
                     Log.d("Ending-> " + str(block_info))
                 elif last_block is None or last_block._filename is None:
                     out_lines.append(line)
-                # elif
                 # No other action required, ignore these lines
 
-                # block = search(r"^(```+)", line)
-                # if block is not None:
-                #     block = block.group(1)
-                #     Log.d(f'We found: {block}')
-                #     last_block_len = len(code_blocks[-1]) if len(code_blocks) > 0 else len(block)
-                #     code_blocks.append(block)
-                #     if len(block) > last_block_len:
-                #         Log.i(f"Skipping {line}")
-                #         out_lines.append(line)
-                #         continue
-
-                # if not replacing:
-                #     start = search(r"^```\s*(\w+)\:([\w_\-\.\/]+)\s*\[?(\d+)?\-?\:?(\d+)?\]?.*$", line)
-                #     # Append the line
-                #     out_lines.append(line)
-                #     # Check for the start of an embedded comment block
-                #     replacing = start is not None and len(start.groups()) >= 4
-                #     # If replacing, go add the line(s)
-                #     if replacing:
-                #         Log.d(f'{num} -> {start.groups()}')
-                #         out_lines += getSourceLines(join(directory, start.group(2)), start.group(3), start.group(4))
-
-                # else:
-                #     end = search(r"^```\s*$", line)
-                #     replacing = end is None
-                #     Log.d(f'{end} -> replacing {line}')
-                #     if not replacing:
-                #         out_lines.append(line)
         except IndexError as e:
             Log.w(f'Failed to parse file: {filename}\n{e}')
             return False
 
     with open(filename, 'w') as file:
         file.write(''.join(out_lines))
-    result = not compare or cmp(old_file_name, filename)
-    if compare and not backup:
+    # Result is true if the file has changed
+    result = not cmp(old_file_name, filename)
+    if not backup:
         remove(old_file_name)
     return result
 
@@ -254,7 +240,7 @@ for i, file in enumerate(args.files):
         Log.i(' '.rjust(last_msg_length), end="")
         Log.i(msg, end="")
         last_msg_length = len(msg)
-        if parseMarkDown(file, args.backup, not args.ignore_untracked):
+        if parseMarkDown(file, args.backup):
             files_changed.append(file)
 
 
