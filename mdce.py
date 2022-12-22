@@ -72,38 +72,109 @@ def getSourceLines(filename, start, end):
             raise IndexError(f"Line indices out of bounds: {start} {end} out of {len(lines)}" )
     return selected
 
+class BlockInfo:
+    def __init__(self, is_start=False, is_end=False, length=0, filename=None,
+        start_line=None, end_line=None):
+        """Initialises the object"""
+        self._is_start = is_start
+        self._is_end = is_end
+        self._filename = filename
+        self._start_line = start_line
+        self._end_line = end_line
+        self._length = length
+
+    def __repr__(self):
+        """Gets the string representation of this object"""
+        if self._is_start:
+            return f'Start Block: File {self._filename} [{self._start_line}-{self._end_line}]'
+        elif self._is_end:
+            return 'End of code block'
+        else:
+            return 'No snippet info'
+
+
+def getBlockInfo(line, last_block):
+    """Uses the current line to create a BlockInfo object"""
+    block = search(r"^(```+)\s*(\w+)?\:?([\w_\-\.\/]+)?\s*\[?(\d+)?\-?\:?(\d+)?\]?.*$", line)
+    if block is None:
+        return BlockInfo()
+    elif last_block is None: # Start of block
+        print(block)
+        if len(block.groups()) >= 5:
+            return BlockInfo(is_start=True, length=len(block.group(1)),
+                filename=block.group(3), start_line=block.group(4),
+                end_line=block.group(5))
+        else:
+            return BlockInfo()
+    else:
+        if len(block.group(1)) >= last_block._length:
+            return BlockInfo(is_end=True)
+        else:
+            return BlockInfo()
+    raise RuntimeError("No return route for " + block + " and " + last_block)
+
 
 def parseMarkDown(filename, backup, compare):
-    """
-    Parses the given file for code snippets with file names listed
-    """
+    """Parses the file for code snippets to embed from files"""
+
     old_file_name = filename + ".old"
     if backup or compare:
         copyfile(filename, old_file_name)
+
     out_lines = []
+    last_block = None
     directory = dirname(filename)
     with open(filename) as file:
+        code_blocks = []
         replacing = False
         try:
-        
             for num, line in enumerate(file):
-                if not replacing:
-                    start = search(r"^```\s*(\w+)\:([\w_\-\.\/]+)\s*\[?(\d+)?\-?\:?(\d+)?\]?.*$", line)
-                    # Append the line
+                # Check for being in code block within a code block
+                block_info = getBlockInfo(line, last_block)
+                if block_info._is_start:
+                    last_block = block_info
+                    Log.d("Starting-> " + str(block_info))
                     out_lines.append(line)
-                    # Check for the start of an embedded comment block
-                    replacing = start is not None and len(start.groups()) >= 4
-                    # If replacing, go add the line(s)
-                    if replacing:
-                        Log.d(f'{num} -> {start.groups()}')
-                        out_lines += getSourceLines(join(directory, start.group(2)), start.group(3), start.group(4))
+                    if block_info._filename is not None:
+                        out_lines += getSourceLines(join(directory, block_info._filename),
+                            block_info._start_line, block_info._end_line)
+                elif block_info._is_end:
+                    last_block = None
+                    out_lines.append(line)
+                    Log.d("Ending-> " + str(block_info))
+                elif last_block is None or last_block._filename is None:
+                    out_lines.append(line)
+                # elif
+                # No other action required, ignore these lines
 
-                else:
-                    end = search(r"^```\s*$", line)
-                    replacing = end is None
-                    Log.d(f'{end} -> replacing {line}')
-                    if not replacing:
-                        out_lines.append(line)
+                # block = search(r"^(```+)", line)
+                # if block is not None:
+                #     block = block.group(1)
+                #     Log.d(f'We found: {block}')
+                #     last_block_len = len(code_blocks[-1]) if len(code_blocks) > 0 else len(block)
+                #     code_blocks.append(block)
+                #     if len(block) > last_block_len:
+                #         Log.i(f"Skipping {line}")
+                #         out_lines.append(line)
+                #         continue
+
+                # if not replacing:
+                #     start = search(r"^```\s*(\w+)\:([\w_\-\.\/]+)\s*\[?(\d+)?\-?\:?(\d+)?\]?.*$", line)
+                #     # Append the line
+                #     out_lines.append(line)
+                #     # Check for the start of an embedded comment block
+                #     replacing = start is not None and len(start.groups()) >= 4
+                #     # If replacing, go add the line(s)
+                #     if replacing:
+                #         Log.d(f'{num} -> {start.groups()}')
+                #         out_lines += getSourceLines(join(directory, start.group(2)), start.group(3), start.group(4))
+
+                # else:
+                #     end = search(r"^```\s*$", line)
+                #     replacing = end is None
+                #     Log.d(f'{end} -> replacing {line}')
+                #     if not replacing:
+                #         out_lines.append(line)
         except IndexError as e:
             Log.w(f'Failed to parse file: {filename}\n{e}')
             return False
