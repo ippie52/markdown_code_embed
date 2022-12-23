@@ -8,10 +8,10 @@
 from os import chdir, getcwd, walk, listdir, remove, chdir
 from os.path import dirname, realpath, exists, isdir, isfile, join
 from argparse import ArgumentParser
-from re import search
+from re import search, split, IGNORECASE
 from shutil import copyfile
 from filecmp import cmp
-from subprocess import Popen, PIPE
+from subprocess import Popen, PIPE, STDOUT
 from sys import exit
 from logging import Log
 
@@ -77,41 +77,72 @@ def getSourceLines(filename, start, end):
             raise IndexError(f"Line indices out of bounds: {start} {end} out of {len(lines)}" )
     return selected
 
+def getRunnableLines(filename, args):
+    """Gets the stdout from the given application or script with the given arguments"""
+    args = [filename] + args if len(args) > 0 else filename
+
+    p = Popen(args, stdout=PIPE)
+    print("Running", args)
+    o, e = p.communicate(timeout=2)
+    o = o.decode("utf-8")
+    return [o + '\n' for o in o.splitlines()]
+
+
 class BlockInfo:
     """Simple class used to represent a code block start or end"""
 
-    def __init__(self, is_start=False, is_end=False, length=0, filename=None,
-        start_line=None, end_line=None):
+    def __init__(self, is_start=False, is_end=False, runnable=False,
+        length=0, filename=None, start_line=None, end_line=None, args=None):
         """Initialises the object"""
         self._is_start = is_start
         self._is_end = is_end
+        self._runnable = runnable is not None
         self._filename = filename
         self._start_line = start_line
         self._end_line = end_line
         self._length = length
+        self._args = args
 
     def __repr__(self):
         """Gets the string representation of this object"""
         if self._is_start:
-            return f'Start Block: File {self._filename} [{self._start_line}-{self._end_line}]'
+            if self._runnable:
+                return f'Start Block: Run {self._filename} <{self._args}>'
+            else:
+                return f'Start Block: File {self._filename} [{self._start_line}-{self._end_line}]'
         elif self._is_end:
             return 'End of code block'
         else:
             return 'No snippet info'
 
+    def getRunnableArgs(self):
+        """Gets the arguments to be passed to Popen"""
+        args = []
+        if self._args is not None:
+            if type(self._args) is list:
+                args = self._args
+            elif type(self._args) is str:
+                # Split the arguments by comma and remove
+                args = self._args.split()
+        return args
+
 
 def getBlockInfo(line, last_block):
     """Uses the current line to create a BlockInfo object"""
-    expr = r"^(```+)\s*(\w+)?\:?([\w_\-\.\/]+)?\s*\[?(\d+)?\-?\:?(\d+)?\]?.*$"
-    block = search(expr, line)
-
+    expr = r"^(?P<dash>```+)\s*(?P<syntax>\w+)?\:?(?P<runnable>run)?\s*\:?\s*(?P<filename>[\w_\-\.\/]+)?\s*\[?(?P<start_line>\d+)?\-?\:?(?P<end_line>\d+)?\]?\s*(\<(?P<args>.*?)\>)?"
+    block = search(expr, line, IGNORECASE)
     info = BlockInfo()
     if block is not None:
-        if last_block is None and len(block.groups()) >= 5:
-            info = BlockInfo(is_start=True, length=len(block.group(1)),
-                    filename=block.group(3), start_line=block.group(4),
-                    end_line=block.group(5))
-        elif last_block is not None and len(block.group(1)) >= last_block._length:
+        # for i in range(8):
+        #     Log.w(f'{i} -> {block.group(i)}')
+        if last_block is None:
+            info = BlockInfo(is_start=True, length=len(block.group('dash')),
+                    runnable=block.group('runnable'),
+                    filename=block.group('filename'),
+                    start_line=block.group('start_line'),
+                    end_line=block.group('end_line'),
+                    args=block.group('args'))
+        elif last_block is not None and len(block.group('dash')) >= last_block._length:
             info = BlockInfo(is_end=True)
 
     return info
@@ -139,15 +170,20 @@ def parseMarkDown(filename, backup):
                 block_info = getBlockInfo(line, last_block)
                 if block_info._is_start:
                     last_block = block_info
-                    Log.d("Starting-> " + str(block_info))
                     out_lines.append(line)
                     if block_info._filename is not None:
-                        out_lines += getSourceLines(join(directory, block_info._filename),
-                            block_info._start_line, block_info._end_line)
+                        fname = join(directory, block_info._filename)
+                        if block_info._runnable:
+                            stdout_lines = getRunnableLines(fname,
+                                block_info.getRunnableArgs())
+                            out_lines += stdout_lines
+                        else:
+                            source_lines = getSourceLines(fname,
+                                block_info._start_line, block_info._end_line)
+                            out_lines += source_lines
                 elif block_info._is_end:
                     last_block = None
                     out_lines.append(line)
-                    Log.d("Ending-> " + str(block_info))
                 elif last_block is None or last_block._filename is None:
                     out_lines.append(line)
                 # No other action required, ignore these lines
