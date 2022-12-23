@@ -15,12 +15,12 @@ from subprocess import Popen, PIPE
 from sys import exit
 from logging import Log
 
-
+# Set up argument parsing
 parser = ArgumentParser(prog="EmbedCode",
     description="Embed code within markdown documents")
 parser.add_argument('-d', '--directories', metavar="directory",
     help='Directories to be scanned for README.md files',
-    default=getcwd(), nargs='+')
+    default=[], nargs='+')
 parser.add_argument('-f', '--files', metavar="file name",
     help='Files to be scanned',
     default=[], nargs='+')
@@ -42,6 +42,11 @@ parser.add_argument('-q', '--quiet', action='store_true',
 
 args = parser.parse_args()
 
+# Check for no file or directories provided and set default
+if len(args.files) == 0 and len(args.directories) == 0:
+    args.directories = [getcwd()]
+
+# Set up logging
 TRACKED_TYPE = 'tracked'
 UNTRACKED_TYPE = 'untracked'
 Log.set_verb(Log.VERB_WARNING if args.quiet else Log.VERB_INFO)
@@ -66,13 +71,15 @@ def getSourceLines(filename, start, end):
         # No need to remove from end
         end = int(end)
         if start <= len(lines) and end <= len(lines):
-            Log.d(f"GRABBING: {start} to {end}")
+            Log.d(f"Grabbing lines {start} to {end}")
             selected = lines[start:end]
         else:
             raise IndexError(f"Line indices out of bounds: {start} {end} out of {len(lines)}" )
     return selected
 
 class BlockInfo:
+    """Simple class used to represent a code block start or end"""
+
     def __init__(self, is_start=False, is_end=False, length=0, filename=None,
         start_line=None, end_line=None):
         """Initialises the object"""
@@ -107,21 +114,6 @@ def getBlockInfo(line, last_block):
         elif last_block is not None and len(block.group(1)) >= last_block._length:
             info = BlockInfo(is_end=True)
 
-    # if block is None:
-    #     return BlockInfo()
-    # elif last_block is None: # Start of block
-    #     if len(block.groups()) >= 5:
-    #         return BlockInfo(is_start=True, length=len(block.group(1)),
-    #             filename=block.group(3), start_line=block.group(4),
-    #             end_line=block.group(5))
-    #     else:
-    #         return BlockInfo()
-    # else:
-    #     if len(block.group(1)) >= last_block._length:
-    #         return BlockInfo(is_end=True)
-    #     else:
-    #         return BlockInfo()
-    # raise RuntimeError("No return route for " + block + " and " + last_block)
     return info
 
 
