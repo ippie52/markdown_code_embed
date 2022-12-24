@@ -13,7 +13,7 @@ result=$?
 if [ $result != 0 ]
 then
 	echo Build failed
-	exit 1
+	exit $result
 fi
 
 echo "'$1' built successfully."
