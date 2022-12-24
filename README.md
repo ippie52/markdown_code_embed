@@ -1,25 +1,25 @@
 # Markdown Code Embed
 
 ## Contents
-- [Introduction](#Introduction)
-- [Usage](#Usage)
-	- [Markdown Syntax](#MarkdownSyntax)
-	 	- [Embed A Full File](#EmbedAFullFile)
-	 	- [Embed Line Selections](#EmbedLineSelections)
-	 	- [Embed Process Output](#EmbedProcessOutput)
- 	- [Script Usage](#ScriptUsage)
- 		- [Defaults](#Defaults)
- 		- [Directories](#Directories)
- 		- [Files](#Files)
- 		- [Sub-directories](#Sub-directories)
- 		- [Backup](#Backup)
- 		- [Ignore Changes In Git](#IgnoreChangesInGit)
- 		- [Ignore Untracked Changes](#IgnoreUntrackedChanges)
- 		- [Quiet](#Quiet)
-- [Examples And Extras](#ExamplesAndExtras)
-	- [Building And Running](#Building-And-Running)
-	- [Git Pre-Commit Hook](#)
-- [Why Did I Make This?](#Why-Did-I-Make-This)
+- [Introduction](#introduction)
+- [Usage](#usage)
+	- [Markdown Syntax](#markdown-syntax)
+	 	- [Embed A Full File](#embed-a-full-file)
+	 	- [Embed Line Selections](#embed-line-selections)
+	 	- [Embed Process Output](#embed-process-output)
+ 	- [Script Usage](#script-usage)
+ 		- [Defaults](#defaults)
+ 		- [Directories](#directories)
+ 		- [Files](#files)
+ 		- [Sub-directories](#sub-directories)
+ 		- [Backup](#backup)
+ 		- [Ignore Changes In Git](#ignore-changes-in-git)
+ 		- [Ignore Untracked Changes](#ignore-untracked-changes)
+ 		- [Quiet](#quiet)
+- [Examples And Extras](#examples-and-extras)
+	- [Building And Running](#building-and-running)
+	- [Git Pre-Commit Hook](#git-pre-commit-hook)
+- [Why Did I Make This?](#why-did-i-make-this)
 - [TODO](#todo)
 
 ## Introduction
@@ -95,7 +95,7 @@ For example, embedding the usage of the `mdce.py` script is done with the follow
 ```text:run:mdce.py <"-h">
 ```
 ````
-The result of which can be seen in the [script usage](#ScriptUsage).
+The result of which can be seen in the [script usage](#script-usage).
 
 Another example, displaying the contents of the `example` directory within this repository:
 ````markdown
