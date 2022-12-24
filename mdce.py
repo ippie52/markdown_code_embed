@@ -14,6 +14,7 @@ from filecmp import cmp
 from subprocess import Popen, PIPE, STDOUT
 from sys import exit
 from logging import Log
+from json import loads
 
 # Set up argument parsing
 parser = ArgumentParser(prog="EmbedCode",
@@ -31,10 +32,10 @@ parser.add_argument('-b', '--backup', action="store_true",
     help='Backs up the original file, appending ".old" to the file name',  
     default=False)
 parser.add_argument('-g', '--ignore-git', action="store_true",
-    help='Return value ignores changes in git',
+    help='Exit value ignores changes in git',
     default=False)
 parser.add_argument('-u', '--ignore-untracked', action="store_true",
-    help='Return value ignores changes to untracked files',
+    help='Exit value ignores changes to untracked files',
     default=False)
 parser.add_argument('-q', '--quiet', action='store_true',
     help='Reduces the number of messages printed',
@@ -81,10 +82,13 @@ def getRunnableLines(filename, args):
     """Gets the stdout from the given application or script with the given arguments"""
     args = [filename] + args if len(args) > 0 else filename
 
-    p = Popen(args, stdout=PIPE)
-    print("Running", args)
+    Log.i(f'Running {args}')
+    p = Popen(args, stdout=PIPE, stderr=PIPE)
     o, e = p.communicate(timeout=2)
-    o = o.decode("utf-8")
+    if p.returncode != 0:
+        e = e.decode('utf-8')
+        raise RuntimeError(f'Process failed: {args}: \n{e}')
+    o = o.decode('utf-8')
     return [o + '\n' for o in o.splitlines()]
 
 
@@ -118,12 +122,22 @@ class BlockInfo:
     def getRunnableArgs(self):
         """Gets the arguments to be passed to Popen"""
         args = []
+        Log.d(f'Parsing {self._args}')
         if self._args is not None:
+            try:
+                self._args = loads(self._args)
+            except Exception as e:
+                raise ValueError(f'Invalid arguments found: {self._args} - ' + str(e))
+
+            if type(self._args) is dict:
+                raise ValueError(f'Dictionary objects are not supported: {self._args}')
+
             if type(self._args) is list:
                 args = self._args
+                Log.d(f'Args are list: {self._args}')
             elif type(self._args) is str:
-                # Split the arguments by comma and remove
-                args = self._args.split()
+                Log.d(f'Args are string: {self._args}')
+                args = [self._args]
         return args
 
 
@@ -133,8 +147,6 @@ def getBlockInfo(line, last_block):
     block = search(expr, line, IGNORECASE)
     info = BlockInfo()
     if block is not None:
-        # for i in range(8):
-        #     Log.w(f'{i} -> {block.group(i)}')
         if last_block is None:
             info = BlockInfo(is_start=True, length=len(block.group('dash')),
                     runnable=block.group('runnable'),
@@ -188,9 +200,10 @@ def parseMarkDown(filename, backup):
                     out_lines.append(line)
                 # No other action required, ignore these lines
 
-        except IndexError as e:
-            Log.w(f'Failed to parse file: {filename}\n{e}')
+        except (IndexError, ValueError, RuntimeError) as e:
+            Log.w(f'Failed to parse file [{num + 1}]: {filename}\n{e}')
             return False
+
 
     with open(filename, 'w') as file:
         file.write(''.join(out_lines))
@@ -261,13 +274,9 @@ for d in [realpath(join(getcwd(), d)) for d in args.directories]:
 
 files_changed = []
 for i, file in enumerate(args.files):
-    last_msg_length = 0
     if isfile(file):
         progress = 100. * float(i + 1) / float(len(args.files))
-        msg = f"\rParsing: [{round(progress)}%] " + file
-        Log.i(' '.rjust(last_msg_length), end="")
-        Log.i(msg, end="")
-        last_msg_length = len(msg)
+        Log.i(f"Parsing: [{round(progress)}%] {file}")
         if parseMarkDown(file, args.backup):
             files_changed.append(file)
 
