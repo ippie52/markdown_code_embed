@@ -126,8 +126,9 @@ In general, `mdce.py` isn't intended to be an all-singing, all-dancing script. I
 
 For example, if you wish to pass arguments to pipe `stderr` to `/dev/null`, e.g. `my_command 2> /dev/null`, please wrap this in a script!
 
+**Tip: _Avoid capturing process outputs that will differ on each run, they will trip up commit hooks and CI checks._**
 
-**Caution: _Be careful not to pass anything too demanding or recursive. For instance, calling the `mdce.py` without the `-h` argument will result in a recursive call to itself, spawning many processes. No prizes will be awarded for realising that I made this happen during my testing_**
+**Caution: _Be careful not to pass anything too demanding or recursive. For instance, calling the `mdce.py` without the `-h` argument will result in a recursive call to itself, spawning many processes. No prizes will be awarded for realising that I made this happen during my testing._**
 
 ### Script Usage
 To run the script, `Python3` is required.
