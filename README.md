@@ -33,6 +33,34 @@ The script can create backups, however these will need to be restored by the use
 ### Markdown Syntax
 This section covers some basics of writing your markdown document to include live code snippets.
 
+General rules:
+- The opening code block must all be on one line.
+- Must start with at least three back-ticks.
+- Must have a language/syntax type ([here](https://github.com/jincheng9/markdown_supported_languages) is a decent list).
+- Relative file name placed after the syntax, following a colon.
+- Line number range, if required, in square brackets with either a colon `:` or dash `-` separating the start and end lines. A single value is also accepted.
+- Must be a closing block with greater than or equal to the number of back-ticks in the opening block.
+
+General Syntax:
+````markdown
+```language:path/to/file [start_line-end_line]`
+```
+````
+
+Additional rules for process captures:
+- General rules above must be met
+- Keyword `run` must appear after the syntax and a colon, and must be followed by a colon before the path of the file to be executed
+- Arguments, if required, must be within chevrons and in JSON format (see [this section](#embed-process-output) for more details)
+- Line numbers, if set, will be ignored
+- Only data sent to `stdout` will be recorded. For `stderr`, a wrapper will be required.
+
+General Syntax:
+````markdown
+```language:run:path/to/file <["arg1", "arg2", "arg3"]>`
+```
+````
+
+
 #### Embed A Full File
 By placing the code syntax and the relative path to the file, separated by a colon directly after the opening code block, the entire file will be embedded into the document. This is useful for small files.
 
@@ -132,6 +160,7 @@ For example, if you wish to pass arguments to pipe `stderr` to `/dev/null`, e.g.
 
 ### Script Usage
 To run the script, `Python3` is required.
+
 From the script's usage output:
 
 ```text:run:mdce.py <"-h">
@@ -140,7 +169,7 @@ usage: EmbedCode [-h] [-d directory [directory ...]]
 
 Embed code within markdown documents
 
-optional arguments:
+options:
   -h, --help            show this help message and exit
   -d directory [directory ...], --directories directory [directory ...]
                         Directories to be scanned for README.md files
@@ -154,6 +183,8 @@ optional arguments:
                         Exit value ignores changes to untracked files
   -q, --quiet           Reduces the number of messages printed
 ```
+
+When run, provided at most only one of `ignore-git` or `ignore-untracked` are supplied, the exit status will indicate the number of files that the parser has updated. This allows commit hooks and CI to identify whether a developer has forgotten to update the documentation.
 
 #### Defaults
 By default, if no files or directories are provided, the current working directory will be selected for a search for a file called `README.md`. Any changes to the file will be reported in the exit value from the script. Information messages will be shown, and no backup will be made.
@@ -236,8 +267,8 @@ As I wrote this very document, I also started to see other things that would be 
 
 ## TODO
 Below are a list of things I am hoping to bring to this in future
-1. Add titles to code blocks
 1. Add links at bottom to the source file of code blocks
+
 
 If you happen to see this, like it, use it and want me to add anything else, or fix any bugs, feel free to post an issue and I'll reply when I can.
 
