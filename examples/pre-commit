@@ -1,0 +1,31 @@
+#!/usr/bin/bash
+#
+# @brief 	Provides a pre-commit hook to embed any README.md files with code
+# 			where requested.
+#
+# @author 	Kris Dunning (ippie52@gmail.com)
+#
+# To use this pre-commit hook in your repository, please copy the contents to
+# .git/hooks/pre-commit
+#
+# When this fails, it will prevent the commit from taking place and prompt the
+# committer to fix the issues - which will be to add the updated markdown
+# file(s) to the current commit after first making sure that their contents is
+# correct and up to date.
+#
+# To bypass this check, run the commit with the --no-verify
+
+# Run the script and obtain the result (ignores un-tracked markdown files)
+./mdce.py -d . -u -q
+result=$?
+
+# The script returns the number of files, so if that isn't zero, make the
+# committer stop and assess.
+if [ $result != 0 ]
+then
+	echo -e "\033[1;31mFailed to commit, see listed files above."
+	echo -e "Please fix these before continuing. \033[0m"
+fi
+
+# Return the result from the script
+exit $result
