@@ -99,16 +99,15 @@ The result of which can be seen in the [script usage](#script-usage).
 
 Another example, displaying the contents of the `example` directory within this repository:
 ````markdown
-```text:run:/usr/bin/ls <["-nh", "examples"]>
+```text:run:/usr/bin/ls <["examples"]>
 ```
 ````
 Gives:
-```text:run:/usr/bin/ls <["-nh", "examples"]>
-total 4.0K
--rwxrwxrwx 1 1000 1000 480 Dec 24 07:14 build_example_app.sh
--rwxrwxrwx 1 1000 1000 496 Dec 22 15:45 example.cpp
--rwxrwxrwx 1 1000 1000 315 Dec 22 15:48 greeting.h
--rwxrwxrwx 1 1000 1000 995 Dec 21 17:57 pre-commit
+```text:run:/usr/bin/ls <["examples"]>
+build_example_app.sh
+example.cpp
+greeting.h
+pre-commit
 ```
 
 To capture this, the extra tag `run` is added _between the syntax type and the file/process name_ with its relative location. In addition to this, arguments are provided in JSON format, wrapped in chevrons, e.g. `<["arg1", "arg2"]>`.
