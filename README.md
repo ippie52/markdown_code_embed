@@ -19,6 +19,9 @@
 - [Examples And Extras](#examples-and-extras)
 	- [Building And Running](#building-and-running)
 	- [Git Pre-Commit Hook](#git-pre-commit-hook)
+  - [GitHub Actions/Workflows](#github-actionsworkflows)
+  - [Running With A Local Copy](#running-with-a-local-copy)
+  - [Running From The GitHub Marketplace](#running-from-the-github-marketplace)
 - [Why Did I Make This?](#why-did-i-make-this)
 - [TODO](#todo)
 
@@ -256,6 +259,36 @@ An example of a Git pre-commit hook is found [here](/examples/pre-commit). It sh
 
 To use this, copy the file to your `.git/hooks/` directory.
 
+### GitHub Actions/Workflows
+
+#### Running With A Local Copy
+This repository is intended to be cloned to your development platform so that it can be used on any other repository. However, you may wish to include it in with your local changes, either with a sub-module or a direct copy. Feel free to do as you wish there. If doing so, there is an example of a workflow in this repository that runs this script on this very file, ensuring that any pull requests have up to date documentation.
+
+Below is the contents of the [active workflow file](.github/workflows/check-readme.yml)
+```yaml:.github/workflows/check-readme.yml
+name: Check Readme
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run MDCE
+        run: ./mdce.py -q
+```
+
+#### Running From The GitHub Marketplace
+Instead of having a copy within your repository, this check is available as an [Action on the GitHub Marketplace](https://github.com/ippie52/markdown_code_embed_action). Over there, you will find an [example](https://github.com/ippie52/markdown_code_embed_action/blob/main/example) file showing a simple way to include this action into your repository.
+
+
 ## Why Did I Make This?
 I have found that maintaining documentation and README files can often fall behind, and so I wanted something that nudges me as a developer to check when my code changes and the documentation may have become out of date.
 
@@ -267,7 +300,8 @@ As I wrote this very document, I also started to see other things that would be 
 
 ## TODO
 Below are a list of things I am hoping to bring to this in future
-1. Add links at bottom to the source file of code blocks
+1. Option to re-indent code to prevent too much leading white-space
+1. Option to allow changes and create another commit - Despite going against the principals of this, but it may be useful in some situations.
 
 
 If you happen to see this, like it, use it and want me to add anything else, or fix any bugs, feel free to post an issue and I'll reply when I can.
