@@ -286,7 +286,7 @@ jobs:
 ```
 
 #### Running From The GitHub Marketplace
-Instead of having a copy within your repository, this check is available as an [Action on the GitHub Marketplace](https://github.com/ippie52/markdown_code_embed_action). Over there, you will find an [example](https://github.com/ippie52/markdown_code_embed_action/blob/main/example) file showing a simple way to include this action into your repository.
+Instead of having a copy within your repository, this check is available as an [Action on the GitHub Marketplace](https://github.com/marketplace/actions/markdown-code-embed). Over there, you will find an [example](https://github.com/ippie52/markdown_code_embed_action/blob/main/example) file showing a simple way to include this action into your repository.
 
 
 ## Why Did I Make This?
