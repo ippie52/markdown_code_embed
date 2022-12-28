@@ -238,7 +238,7 @@ def getFiles(root, check_subs, depth, ignored_dirs):
             for d in listdir(root):
                 d = realpath(join(root, d))
                 if isdir(d):
-                    files += getFiles(d, check_subs, depth + 1)
+                    files += getFiles(d, check_subs, depth + 1, ignored_dirs)
     else:
         print(root, 'is in', ignored_dirs)
 
