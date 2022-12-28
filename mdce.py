@@ -22,9 +22,15 @@ parser = ArgumentParser(prog="EmbedCode",
 parser.add_argument('-d', '--directories', metavar="directory",
     help='Directories to be scanned for README.md files',
     default=[], nargs='+')
-parser.add_argument('-f', '--files', metavar="file name",
+parser.add_argument('-f', '--files', metavar="file_name",
     help='Files to be scanned',
     default=[], nargs='+')
+parser.add_argument('-e', '--exclude', metavar='directory', nargs='+',
+    help='Directories to exclude from searching',
+    default=[])
+parser.add_argument('-i', '--include-self', action='store_true',
+    help='Includes the directory (and sub-directories with -s) of this script when parsing',
+    default=False)
 parser.add_argument('-s', '--sub', action="store_true", 
     help='Checks all sub-directories',
     default=False)
@@ -46,6 +52,10 @@ args = parser.parse_args()
 # Check for no file or directories provided and set default
 if len(args.files) == 0 and len(args.directories) == 0:
     args.directories = [getcwd()]
+
+if not args.include_self:
+    args.exclude.append(dirname(realpath(__file__)))
+
 
 # Set up logging
 TRACKED_TYPE = 'tracked'
@@ -214,25 +224,25 @@ def parseMarkDown(filename, backup):
     return result
 
 
-def getFiles(root, check_subs, depth):
+def getFiles(root, check_subs, depth, ignored_dirs):
     """Gets the matching files recursively"""
     root = realpath(root)
     files = []
-    file = join(root, "README.md")
-    if exists(file):
-        Log.i(f'Found file: {file}')
-        files.append(file)
-    if check_subs:
-        for d in listdir(root):
-            d = realpath(join(root, d))
-            if isdir(d):
-                files += getFiles(d, check_subs, depth + 1)
+    # Must not start with any ignored directory
+    if not root.startswith(tuple(ignored_dirs)):
+        file = join(root, "README.md")
+        if exists(file):
+            Log.i(f'Found file: {file}')
+            files.append(file)
+        if check_subs:
+            for d in listdir(root):
+                d = realpath(join(root, d))
+                if isdir(d):
+                    files += getFiles(d, check_subs, depth + 1)
+    else:
+        print(root, 'is in', ignored_dirs)
 
     return files
-
-# TODO - Find out if file tracked in git
-# git ls-files --error-unmatch <file name> | RETURN CODE
-
 
 def isFileTracked(filename):
     """Identifies whether a file is tracked in git"""
@@ -246,10 +256,6 @@ def isFileTracked(filename):
         Log.w(f'Error accessing Git repository in {dirname(filename)}')
     return tracked
 
-
-# TODO - Check if file is updated on working branch
-# git update-index --refresh  | RETURN CODE ?
-# git diff-index --quiet HEAD -- | RETURN CODE
 
 def isFileChangedInGit(filename):
     """
@@ -270,7 +276,7 @@ for d in [realpath(join(getcwd(), d)) for d in args.directories]:
 
     if exists(d) and isdir(d):
         Log.d(f'Directory Valid: {d}')
-        args.files += getFiles(d, args.sub, 1)
+        args.files += getFiles(d, args.sub, 1, args.exclude)
 
 files_changed = []
 for i, file in enumerate(args.files):
