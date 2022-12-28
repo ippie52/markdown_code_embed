@@ -11,6 +11,8 @@
  		- [Defaults](#defaults)
  		- [Directories](#directories)
  		- [Files](#files)
+    - [Exclude](#exclude)
+    - [Include Self](#include-self)
  		- [Sub-directories](#sub-directories)
  		- [Backup](#backup)
  		- [Ignore Changes In Git](#ignore-changes-in-git)
@@ -168,7 +170,8 @@ From the script's usage output:
 
 ```text:run:mdce.py <"-h">
 usage: EmbedCode [-h] [-d directory [directory ...]]
-                 [-f file name [file name ...]] [-s] [-b] [-g] [-u] [-q]
+                 [-f file_name [file_name ...]] [-e directory [directory ...]]
+                 [-i] [-s] [-b] [-g] [-u] [-q]
 
 Embed code within markdown documents
 
@@ -176,8 +179,12 @@ options:
   -h, --help            show this help message and exit
   -d directory [directory ...], --directories directory [directory ...]
                         Directories to be scanned for README.md files
-  -f file name [file name ...], --files file name [file name ...]
+  -f file_name [file_name ...], --files file_name [file_name ...]
                         Files to be scanned
+  -e directory [directory ...], --exclude directory [directory ...]
+                        Directories to exclude from searching
+  -i, --include-self    Includes the directory (and sub-directories with -s)
+                        of this script when parsing
   -s, --sub             Checks all sub-directories
   -b, --backup          Backs up the original file, appending ".old" to the
                         file name
@@ -197,6 +204,12 @@ Multiple directories can be provided. Each will be searched for files called `RE
 
 #### Files
 If you wish to specify files to be parsed that are not called `README.md`, this option can be used. Multiple files can be provided.
+
+#### Exclude
+This provides excluded directories, although currently this only allows for literal directories (and sub-directories). There is no pattern matching, just a little string check, but it should be enough for most needs.
+
+#### Include Self
+By default, the directory (and sub-directories) of the `mdce.py` script are excluded from parsing. This option is to include it, only really useful for me developing this repository! Or if, for some reason, you have placed `README.md` files in this directory or sub-directories.
 
 #### Sub-directories
 With the `-s` option set, each directory provided with the `-d` option will be searched to their very depths. It is best to tread with caution using this option.
