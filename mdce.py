@@ -56,6 +56,9 @@ if len(args.files) == 0 and len(args.directories) == 0:
 if not args.include_self:
     args.exclude.append(dirname(realpath(__file__)))
 
+for i in range(len(args.files)):
+    args.files[i] = join(getcwd(), args.files[i])
+
 
 # Set up logging
 TRACKED_TYPE = 'tracked'
@@ -153,7 +156,7 @@ class BlockInfo:
 
 def getBlockInfo(line, last_block):
     """Uses the current line to create a BlockInfo object"""
-    expr = r"^(?P<dash>```+)\s*(?P<syntax>\w+)?\:?(?P<runnable>run)?\s*\:?\s*(?P<filename>[\w_\-\.\/]+)?\s*\[?(?P<start_line>\d+)?\-?\:?(?P<end_line>\d+)?\]?\s*(\<(?P<args>.*?)\>)?"
+    expr = r"^(?P<dash>```+)\s*(?P<syntax>\w+)?\:?((?P<runnable>run)?\s*\:)?\s*(?P<filename>[\w_\-\.\/]+)?\s*\[?(?P<start_line>\d+)?\-?\:?(?P<end_line>\d+)?\]?\s*(\<(?P<args>.*?)\>)?"
     block = search(expr, line, IGNORECASE)
     info = BlockInfo()
     if block is not None:
@@ -240,7 +243,7 @@ def getFiles(root, check_subs, depth, ignored_dirs):
                 if isdir(d):
                     files += getFiles(d, check_subs, depth + 1, ignored_dirs)
     else:
-        print(root, 'is in', ignored_dirs)
+        Log.d(f'Ignoring {root}, found in {ignored_dirs}')
 
     return files
 
