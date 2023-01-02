@@ -68,8 +68,20 @@ Log.set_log(UNTRACKED_TYPE, colour=Log.COL_CYN, prefix='')
 Log.set_log(TRACKED_TYPE, colour=Log.COL_YLW, prefix='')
 Log.set_info(prefix='')
 
+def getStrippedLines(lines, indent):
+    """Strips the indentation from each lines to the minimum"""
+    numbers = []
+    for line in lines.copy():
+        i = 0
+        while line.startswith(indent):
+            line = line[len(indent):]
+            i += 1
+        numbers.append(i)
+    strip_count = min(numbers) * len(indent)
+    return [line[strip_count:] for line in lines]
 
-def getSourceLines(filename, start, end):
+
+def getSourceLines(filename, start, end, indent=None):
     """Gets the list of lines to be extracted from the given file"""
     selected = None
     with open(filename) as file:
@@ -89,6 +101,10 @@ def getSourceLines(filename, start, end):
             selected = lines[start:end]
         else:
             raise IndexError(f"Line indices out of bounds: {start} {end} out of {len(lines)}" )
+
+        if indent is not None:
+            selected = getStrippedLines(selected, indent)
+
     return selected
 
 def getRunnableLines(filename, args):
@@ -109,7 +125,8 @@ class BlockInfo:
     """Simple class used to represent a code block start or end"""
 
     def __init__(self, is_start=False, is_end=False, runnable=False,
-        length=0, filename=None, start_line=None, end_line=None, args=None):
+        length=0, filename=None, start_line=None, end_line=None, args=None,
+        indent=None):
         """Initialises the object"""
         self._is_start = is_start
         self._is_end = is_end
@@ -119,6 +136,7 @@ class BlockInfo:
         self._end_line = end_line
         self._length = length
         self._args = args
+        self._indent = indent
 
     def __repr__(self):
         """Gets the string representation of this object"""
@@ -153,20 +171,38 @@ class BlockInfo:
                 args = [self._args]
         return args
 
+def getTabIndentation(i_type, i_spaces):
+    """Gets the indentation for a tab"""
+    if i_spaces is None:
+        # Provide a default for using spaces
+        i_spaces = 4
+
+    indent = '\t'
+    if i_type.lower() == 's':
+        indent = ' ' * int(i_spaces)
+
+    return indent
 
 def getBlockInfo(line, last_block):
     """Uses the current line to create a BlockInfo object"""
-    expr = r"^(?P<dash>```+)\s*(?P<syntax>\w+)?\:?((?P<runnable>run)?\s*\:)?\s*(?P<filename>[\w_\-\.\/]+)?\s*\[?(?P<start_line>\d+)?\-?\:?(?P<end_line>\d+)?\]?\s*(\<(?P<args>.*?)\>)?"
+    expr = r"^(?P<dash>```+)\s*(?P<syntax>\w+)?\:?((?P<runnable>run)?\s*\:)?\s*(?P<filename>[\w_\-\.\/]+)?\s*\[?(?P<start_line>\d+)?\-?\:?(?P<end_line>\d+)?\]?\s*(\<(?P<args>.*?)\>)?\s?(?P<indent><<(?P<i_type>s|t)(?P<i_spaces>\d+)?)?"
     block = search(expr, line, IGNORECASE)
     info = BlockInfo()
     if block is not None:
         if last_block is None:
+            indent = None
+            if block.group('indent') is not None:
+                indent = getTabIndentation(
+                    block.group('i_type'),
+                    block.group('i_spaces')
+                )
             info = BlockInfo(is_start=True, length=len(block.group('dash')),
                     runnable=block.group('runnable'),
                     filename=block.group('filename'),
                     start_line=block.group('start_line'),
                     end_line=block.group('end_line'),
-                    args=block.group('args'))
+                    args=block.group('args'),
+                    indent=indent)
         elif last_block is not None and len(block.group('dash')) >= last_block._length:
             info = BlockInfo(is_end=True)
 
@@ -204,7 +240,9 @@ def parseMarkDown(filename, backup):
                             out_lines += stdout_lines
                         else:
                             source_lines = getSourceLines(fname,
-                                block_info._start_line, block_info._end_line)
+                                block_info._start_line,
+                                block_info._end_line,
+                                block_info._indent)
                             out_lines += source_lines
                 elif block_info._is_end:
                     last_block = None
