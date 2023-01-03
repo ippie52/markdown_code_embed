@@ -378,7 +378,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Run MDCE
-        run: ./mdce.py -q
+        run: ./mdce.py -i
 ```
 
 #### Running From The GitHub Marketplace
