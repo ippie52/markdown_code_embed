@@ -472,12 +472,15 @@ if __name__ == '__main__':
     # Parse files
     #
     files_changed = []
+    original_directory = getcwd();
     for i, file in enumerate(args.files):
         if isfile(file):
             progress = 100. * float(i + 1) / float(len(args.files))
+            chdir(dirname(file))
             Log.i(f"Parsing: [{round(progress)}%] {file}")
             if parseMarkDown(file, args.backup):
                 files_changed.append(file)
+    chdir(original_directory)
 
     #
     # Report changed files
