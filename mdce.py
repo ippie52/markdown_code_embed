@@ -14,6 +14,7 @@ from filecmp import cmp
 from subprocess import Popen, PIPE, STDOUT, TimeoutExpired
 from sys import exit
 from logging import Log
+from tempfile import TemporaryDirectory
 import shlex
 
 #
@@ -375,44 +376,91 @@ class LineParser(object):
         # No other action required, ignore these lines
         return (replace, out_lines)
 
-
-def parseMarkDown(filename, backup):
+class Parser(object):
     """
-    @brief  Parses the file for code snippets to embed from files
-    @param  filename    The name of the file to be parsed
-    @param  backup      Whether to store a backup of the file
-    @return True if the file has been modified on this run
+    Provides the base Parser class, on top of which, specific types of parsing
+    can be used
     """
-    old_file_name = filename + ".old"
-    # Always create a copy
-    copyfile(filename, old_file_name)
 
-    out_lines = []
-    directory = dirname(filename)
-    line_parser = LineParser()
-    # Prevent line ending changes by opening as binary and decoding
-    with open(filename, 'rb') as file:
-        code_blocks = []
-        replacing = False
+    def __init__(self):
+        pass
+
+    def _processLines(self, lines_tuple):
+        """
+        Processes the lines to write to the output
+        @param lines_tuple  Tuple output from LineParser#parseLine
+        """
+        raise NotImplementedError("This must be implemented in the child class")
+
+    def _parse(self, in_lines, directory, filename):
+        """
+        Parses the collection of lines
+        @param  in_lines    The collection of lines to parse
+        @param  directory   The directory containing the source
+        @param  filename    The source file name
+        """
+        line_parser = LineParser()
         try:
-            for num, line in enumerate(file):
-                line = line.decode('utf-8')
-                replace, p_out_lines = line_parser.parseLine(directory, line)
-                out_lines += p_out_lines
-
+            for num, line in enumerate(in_lines):
+                if isinstance(line, bytes):
+                    line = line.decode('utf-8')
+                self._processLines(line_parser.parseLine(directory, line))
         except (IndexError, ValueError, RuntimeError, FileNotFoundError) as e:
             # Report the error with line number to make it easier to find
-            Log.w(f'Failed to parse file [{num + 1}]: {filename}\n{e}')
+            Log.w(f'Failed to parse input [{num + 1}]: {filename}\n{e}')
             return False
-    # Re-write the file with the updated output
-    with open(filename, 'w') as file:
-        file.write(''.join(out_lines))
-    # Result is true if the file has changed
-    result = not cmp(old_file_name, filename)
-    # Remove original file if no back-ups were requested
-    if not backup:
-        remove(old_file_name)
-    return result
+        return True
+
+class FileToFileParser(Parser):
+    """
+    Class to provide parsing for a markdown file with file input and output
+    """
+
+    def __init__(self):
+        """Constructor"""
+        super(FileToFileParser, self).__init__()
+        self.temp_dir = None
+        self.temp_file = None
+        self.temp_file_name = None
+
+    def _processLines(self, lines_tuple):
+        """
+        Process the lines to write to the output file
+        @param lines_tuple  Tuple output from LineParser#parseLine
+        """
+        if self.temp_file is not None:
+            self.temp_file.writelines(lines_tuple[1])
+        else:
+            raise RuntimeError('Attempting to process without an open file')
+
+    def parse(self, filename, backup):
+        """
+        Parses the collection of lines and writes to an output file
+        @param  filename    The name of the input file to parse
+        @param  backup      Whether to back up the file before replacing
+        @return True if the file has been updated, otherwise False if unchanged
+        """
+        parse_result = False
+        self.temp_dir = TemporaryDirectory();
+        self.temp_file_name = join(self.temp_dir.name, 'mdce_working.md')
+        self.temp_file = open(self.temp_file_name, 'w')
+
+        with open(filename, 'rb') as file:
+            parse_result = super()._parse(file, dirname(filename), filename)
+        self.temp_file.close()
+
+        # Asses whether we need to back up and replace the existing file
+        file_changed = parse_result and not cmp(self.temp_file_name, filename)
+        if file_changed:
+            if backup:
+                old_file_name = filename + ".old"
+                copyfile(filename, old_file_name)
+            copyfile(self.temp_file_name, filename)
+
+        # Remove temporary directory and its contents
+        self.temp_dir.cleanup()
+
+        return file_changed
 
 
 def getFiles(root, check_subs, ignored_dirs):
@@ -524,12 +572,13 @@ if __name__ == '__main__':
     #
     files_changed = []
     original_directory = getcwd();
+    file_parser = FileToFileParser()
     for i, file in enumerate(args.files):
         if isfile(file):
             progress = 100. * float(i + 1) / float(len(args.files))
             chdir(dirname(file))
             Log.i(f"Parsing: [{round(progress)}%] {file}")
-            if parseMarkDown(file, args.backup):
+            if file_parser.parse(file, args.backup):
                 files_changed.append(file)
     chdir(original_directory)
 
