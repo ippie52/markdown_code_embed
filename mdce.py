@@ -284,7 +284,7 @@ def getBlockInfo(line, start_block):
     """
     # Expression to extract the dashes, syntax, file name and any options to be
     # processed for this block
-    expr = r"^(?P<dash>```+)\s*((?P<syntax>\w+):)?\s*(?P<filename>[\w_\-\.\/]+)?(?P<args>.*)$"
+    expr = r"^\s*(?P<dash>```+)\s*((?P<syntax>\w+):)?\s*(?P<filename>[\w_\-\.\/]+)?(?P<args>.*)$"
     block = search(expr, line, IGNORECASE)
     info = BlockInfo()
 
