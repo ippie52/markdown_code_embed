@@ -305,6 +305,77 @@ def getBlockInfo(line, start_block):
     return info
 
 
+class LineParser(object):
+    """
+    @brief  Class used to parse a markdown file line by line
+    """
+
+    def __init__(self):
+        """
+        @brief  Initialises the object
+        """
+        self._last_block = None
+        self._deferred_lines = None
+
+    def parseLine(self, directory, line, defer=True):
+        """
+        @brief  Parses an incoming line, returns a tuple indicating whether to
+                replace the original line, and what to replace it with.
+        @param  directory   The directory of the file being parsed
+        @param  line        The line to be parsed
+        @param  defer   Whether to defer the output from a start block until the
+                        end block is found. This helps prevent overwriting data
+                        when no end block is found. Default True.
+        @return tuple:
+                (replace, lines)
+                replace     Whether to replace the existing line
+                lines       The lines to replace with (can be None)
+        """
+        replace = True
+        block_info = getBlockInfo(line, self._last_block)
+        out_lines = []
+        if block_info._is_start:
+            self._last_block = block_info
+            out_lines.append(line)
+            if block_info._filename is not None:
+                fname = join(directory, block_info._filename)
+                if block_info._runnable:
+                    stdout_lines = getRunnableLines(fname,
+                        block_info.getRunnableArgs(),
+                        block_info._timeout)
+                    self._deferred_lines = stdout_lines
+                else:
+                    source_lines = getSourceLines(fname,
+                        block_info._start_line,
+                        block_info._end_line,
+                        block_info._indent)
+                    self._deferred_lines = source_lines
+
+            if defer or self._deferred_lines is None:
+                replace = False
+            else:
+            # Append generated data to start block if not deferring
+                out_lines += self._deferred_lines
+                self._deferred_lines = None
+
+        elif block_info._is_end:
+            self._last_block = None
+            # Add generated data before end block if available
+            if defer and self._deferred_lines is not None:
+                out_lines += self._deferred_lines
+                self._deferred_lines = None
+            else:
+                replace = False
+
+            out_lines.append(line)
+
+        elif self._last_block is None or self._last_block._filename is None:
+            out_lines.append(line)
+            replace = False
+        # No other action required, ignore these lines
+        return (replace, out_lines)
+
+
 def parseMarkDown(filename, backup):
     """
     @brief  Parses the file for code snippets to embed from files
@@ -317,37 +388,17 @@ def parseMarkDown(filename, backup):
     copyfile(filename, old_file_name)
 
     out_lines = []
-    last_block = None
     directory = dirname(filename)
-    with open(filename) as file:
+    line_parser = LineParser()
+    # Prevent line ending changes by opening as binary and decoding
+    with open(filename, 'rb') as file:
         code_blocks = []
         replacing = False
         try:
             for num, line in enumerate(file):
-                # Check for being in code block within a code block
-                block_info = getBlockInfo(line, last_block)
-                if block_info._is_start:
-                    last_block = block_info
-                    out_lines.append(line)
-                    if block_info._filename is not None:
-                        fname = join(directory, block_info._filename)
-                        if block_info._runnable:
-                            stdout_lines = getRunnableLines(fname,
-                                block_info.getRunnableArgs(),
-                                block_info._timeout)
-                            out_lines += stdout_lines
-                        else:
-                            source_lines = getSourceLines(fname,
-                                block_info._start_line,
-                                block_info._end_line,
-                                block_info._indent)
-                            out_lines += source_lines
-                elif block_info._is_end:
-                    last_block = None
-                    out_lines.append(line)
-                elif last_block is None or last_block._filename is None:
-                    out_lines.append(line)
-                # No other action required, ignore these lines
+                line = line.decode('utf-8')
+                replace, p_out_lines = line_parser.parseLine(directory, line)
+                out_lines += p_out_lines
 
         except (IndexError, ValueError, RuntimeError, FileNotFoundError) as e:
             # Report the error with line number to make it easier to find
