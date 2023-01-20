@@ -388,37 +388,17 @@ def parseMarkDown(filename, backup):
     copyfile(filename, old_file_name)
 
     out_lines = []
-    last_block = None
     directory = dirname(filename)
-    with open(filename) as file:
+    line_parser = LineParser()
+    # Prevent line ending changes by opening as binary and decoding
+    with open(filename, 'rb') as file:
         code_blocks = []
         replacing = False
         try:
             for num, line in enumerate(file):
-                # Check for being in code block within a code block
-                block_info = getBlockInfo(line, last_block)
-                if block_info._is_start:
-                    last_block = block_info
-                    out_lines.append(line)
-                    if block_info._filename is not None:
-                        fname = join(directory, block_info._filename)
-                        if block_info._runnable:
-                            stdout_lines = getRunnableLines(fname,
-                                block_info.getRunnableArgs(),
-                                block_info._timeout)
-                            out_lines += stdout_lines
-                        else:
-                            source_lines = getSourceLines(fname,
-                                block_info._start_line,
-                                block_info._end_line,
-                                block_info._indent)
-                            out_lines += source_lines
-                elif block_info._is_end:
-                    last_block = None
-                    out_lines.append(line)
-                elif last_block is None or last_block._filename is None:
-                    out_lines.append(line)
-                # No other action required, ignore these lines
+                line = line.decode('utf-8')
+                replace, p_out_lines = line_parser.parseLine(directory, line)
+                out_lines += p_out_lines
 
         except (IndexError, ValueError, RuntimeError, FileNotFoundError) as e:
             # Report the error with line number to make it easier to find
