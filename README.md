@@ -23,6 +23,7 @@
     - [Quiet](#quiet)
     - [Code](#code)
     - [Timeout](#timeout)
+    - [Commit](#commit)
 - [Examples And Extras](#examples-and-extras)
   - [Building And Running](#building-and-running)
   - [Git Pre-Commit Hook](#git-pre-commit-hook)
@@ -246,7 +247,7 @@ From the script's usage output:
 usage: Markdown Code Embed [-h] [-d directory [directory ...]]
                            [-f file_name [file_name ...]]
                            [-e directory [directory ...]] [-i] [-s] [-b] [-g]
-                           [-u] [-q] [-c] [-t timeout]
+                           [-u] [-q] [-c] [-t timeout] [-C [commit message]]
 
 Embed code within markdown documents
 
@@ -271,6 +272,12 @@ options:
   -t timeout, --timeout timeout
                         The number of seconds to wait for the git requests to
                         complete. Default is no timeout.
+  -C [commit message], --commit [commit message]
+                        Commits any files changed during the run, either
+                        automatically if a commit message is provided, or
+                        pauses allowing the user to create a commit message
+                        for the changes. Please treat this option with
+                        caution!
 ```
 
 When run, provided at most only one of `ignore-git` or `ignore-untracked` are supplied, the exit status will indicate the number of files that the parser has updated. This allows commit hooks and CI to identify whether a developer has forgotten to update the documentation.
@@ -311,8 +318,31 @@ This displays the code block options, useful for when developing your markdown f
 #### Timeout
 The timeout (in seconds) to be applied to git operations. By default, there is none.
 
+#### Commit
+As the output above states, this option is to be treated with caution.
+
+When a commit message is provided, changes to any files tracked within a git repository made during the run will automatically be added in git and committed with the commit message.
+
+**Caution:**
+- **No checks are made to see if any other files are staged, this is on the developer to deal with.**
+- **If used by default, this may cause multiple commits with the same message.**
+- **The same message will be used in _ALL_ repositories with files changed during the run.**
+- **The user is being trusted they know what they're doing here!**
+
+When the flag is used without a commit message, each repository containing changes made during the run will trigger a pause for the selected editor to be opened for the user to provide a commit message. This does give the user an opportunity to cancel the commit if a mistake has been made.
+
+##### Where would this be useful?
+This would be useful where the contents may change, but the documentation seldom does.
+For instance:
+- Including an entire file - changes to the file won't result in missing sections when using a start and/or end value.
+- The output from a known process or user guide.
+- The output from a process that may contain changing data, such as build date or hash.
+
+**Note: I would suggest to only use this flag if you are certain you do not need to manually confirm its contents is correct.**
+
 ## Examples And Extras
 As well as the examples within this document, others can be found in the [example directory](/examples)
+
 ### Building And Running
 In the examples directory are a C++ source file, header and build script. These combine to build a very simple application, but also provide a more ambitious example.
 
@@ -398,8 +428,10 @@ As I wrote this very document, I also started to see other things that would be 
 
 ## TODO
 Below are a list of things I am hoping to bring to this in future
-1. Option to allow changes and create another commit - Despite going against the principals of this, but it may be useful in some situations.
+1. Allow special actions on certain code blocks, e.g.
+- Some code blocks to automatically trigger **or prevent** a new commit (see the `-C` main option)
 
+I can't think of anything else right now, but I'm open to suggestions
 
 If you happen to see this, like it, use it and want me to add anything else, or fix any bugs, feel free to post an issue and I'll reply when I can.
 
