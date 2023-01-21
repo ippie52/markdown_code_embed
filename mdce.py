@@ -58,7 +58,12 @@ parser.add_argument('-t', '--timeout', type=int, default=None, metavar='timeout'
 The number of seconds to wait for the git requests to complete.
 Default is no timeout.
 """)
-
+parser.add_argument('-C', '--commit', default="", metavar='commit message',
+    nargs='?', help="""
+Commits any files changed during the run, either automatically if a commit message
+is provided, or pauses allowing the user to create a commit message for the changes.
+Please treat this option with caution!
+""")
 
 #
 # Set up parser for block commands
@@ -520,6 +525,51 @@ def isFileChangedInGit(filename, timeout):
     o, e = p.communicate(timeout=timeout)
     return p.returncode == 1
 
+def getGitDirectory(filename, timeout):
+    """
+    Gets the top-level directory name for the given file
+    @param  filename    The file within the git repository
+    @param  timeoput    The length of time to wait for the git command
+    @return The path to the top level directory
+    """
+    args = ['git', 'rev-parse', '--show-toplevel']
+    p = Popen(args, stdout=PIPE, stderr=PIPE)
+    o, e = p.communicate(timeout=timeout)
+    return o.decode('utf-8').strip() if p.returncode == 0 else None
+
+def commitChanges(repo, files, commit_message, timeout):
+    """
+    Triggers a commit to a given repo
+    @param  repo            The path to the git repository
+    @pram   files           The collection of files to add to the commit
+    @param  commit_message  The commit message to use
+    @param  timeout         The length of time to wait for trivial git commands
+    """
+    if isinstance(files, str):
+        files = [files]
+    if not isinstance(files, list):
+        raise NotImplementedError('Files must be provided as a list or string')
+    original_directory = getcwd()
+    # Move into the git repository's directory
+    chdir(repo)
+    args = ['git', 'add'] + files
+    p = Popen(args)
+    o, e = p.communicate(timeout=timeout)
+    if p.returncode != 0:
+        Log.e('Failed to add files')
+    else:
+        args = ['git', 'commit']
+        if commit_message is not None:
+            args += ['-m', commit_message]
+        p = Popen(args)
+        # Note: No timeout here, we are waiting on the user to fill in the
+        #       commit message.
+        o, e = p.communicate()
+
+    # Return to the previous directory
+    chdir(original_directory)
+
+    return p.returncode == 0
 
 #
 # The main functionality of the script
@@ -585,6 +635,7 @@ if __name__ == '__main__':
     #
     # Report changed files
     #
+    repsitories_changed = {}
     original_directory = getcwd();
     tracked_changes = []
     Log.d(f'There are {len(files_changed)} files changed')
@@ -596,6 +647,11 @@ if __name__ == '__main__':
             chdir(dirname(file))
             if isFileTracked(file, args.timeout) and isFileChangedInGit(file, args.timeout):
                 tracked_changes.append(file)
+                # Gather list of repositories with changes
+                repo = getGitDirectory(file, args.timeout)
+                if repo not in repsitories_changed:
+                    repsitories_changed[repo] = []
+                repsitories_changed[repo].append(file)
 
     if not args.ignore_git and len(tracked_changes) > 0:
         Log.message(TRACKED_TYPE, 'Files tracked by Git modified on this run:')
@@ -603,6 +659,13 @@ if __name__ == '__main__':
             Log.message(TRACKED_TYPE, '\t' + file)
 
     chdir(original_directory)
+
+    # Commit arguments can be None or a string - When not in use, empty string
+    if args.commit != "":
+        for repo, files in repsitories_changed.items():
+            Log.i(f'Committing changes to repository: {repo}')
+            commitChanges(repo, files, args.commit, args.timeout)
+
 
     if not args.ignore_untracked:
         exit(len(files_changed))
